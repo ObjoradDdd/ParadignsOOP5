@@ -1,4 +1,4 @@
-package org.example.pizza
+package org.example.pizza.constructor
 
 interface PriceManage {
     fun recalculatePrice()

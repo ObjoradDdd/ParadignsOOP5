@@ -1,5 +1,7 @@
-package org.example.pizza
+package org.example.pizza.order
 
+import org.example.pizza.constructor.Pizza
+import org.example.pizza.constructor.PriceManage
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -45,8 +47,6 @@ class Order(
     fun getId(): UUID {
         return id
     }
-
-
 
     fun addPizza(pizza: Pizza) {
         pizzas.add(pizza)

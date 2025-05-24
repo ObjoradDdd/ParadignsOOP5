@@ -1,11 +1,20 @@
-package org.example.pizza
+package org.example.pizza.constructor
+
+import org.example.pizza.component.Dough
+import org.example.pizza.component.Element
+import org.example.pizza.component.Side
+import org.example.pizza.component.Topping
+import org.example.pizza.order.GuestShare
+import org.example.pizza.order.Sizes
 
 class Pizza(private var dough: Dough, private var side: Side, private val size: Sizes) : PriceManage, Element() {
     override var name: String = "No name"
     override var price: Double = 0.0
-    private var fullOrNot: Boolean = true
+    private var isHalfMade: Boolean = false
+    private var isPieceMade: Boolean = false
     private var pieces: MutableList<PizzaPiece> = mutableListOf()
-    private var forbiddenSide: Side? = null;
+    private var forbiddenSide: Side? = null
+
 
     init {
         for (i in 0 until size.pieceCount) {
@@ -52,49 +61,65 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
     }
 
     fun changeSide(pizzaSide: Side) {
-        var flag = true
-        /*for(side in pieces){
-            if()
-        }*/
         side = pizzaSide
         recalculatePrice()
     }
 
     fun setAllPizza(topping: Topping) {
-        if (topping in side.getToppings()) {
+        if (topping in side.getToppings() || side.isUniversalSize()) {
             for (piece in pieces) {
                 piece.addTopping(topping)
             }
             recalculatePrice()
         } else {
-            println("Запрещенная начинка для этой пиццы")
+            println("Запрещенная начинка для корочки этой пиццы")
+        }
+    }
+
+    fun setRange(start: Int, end: Int, topping: Topping) {
+        if (topping in side.getToppings() || side.isUniversalSize()) {
+            isPieceMade = true
+            for (i in start - 1 until end) {
+                pieces[i].addTopping(topping)
+            }
+            recalculatePrice()
+        } else {
+            println("Запрещенная начинка для корочки этой пиццы")
+        }
+    }
+
+    fun setToPeace(pieceNumber: Int, topping: Topping) {
+        if (topping in side.getToppings() || side.isUniversalSize()) {
+            isPieceMade = true
+            pieces[pieceNumber - 1].addTopping(topping)
+            recalculatePrice()
+        } else {
+            println("Запрещенная начинка для корочки этой пиццы")
         }
     }
 
     fun setLeftPartOfPizza(topping: Topping) {
-        fullOrNot = false
-        if (topping in side.getToppings()) {
+        if (topping in side.getToppings() || side.isUniversalSize()) {
+            isHalfMade = true
             for (pieceIndex in 0 until size.pieceCount / 2) {
                 pieces[pieceIndex].addTopping(topping)
             }
             recalculatePrice()
-        }
-        else{
-            println("Запрещенная начинка для этой пиццы")
+        } else {
+            println("Запрещенная начинка для корочки этой пиццы")
         }
 
     }
 
     fun setRightPartOfPizza(topping: Topping) {
-        fullOrNot = false
-        if (topping in side.getToppings()) {
+        if (topping in side.getToppings() || side.isUniversalSize()) {
+            isHalfMade = true
             for (pieceIndex in size.pieceCount / 2 until size.pieceCount) {
                 pieces[pieceIndex].addTopping(topping)
             }
             recalculatePrice()
-        }
-        else{
-            println("Запрещенная начинка для этой пиццы")
+        } else {
+            println("Запрещенная начинка для корочки этой пиццы")
         }
     }
 
@@ -106,7 +131,7 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
     }
 
     fun deleteFromLeftPartOfPizza(topping: Topping) {
-        fullOrNot = false
+        isHalfMade = true
         for (pieceIndex in 0 until size.pieceCount / 2) {
             pieces[pieceIndex].deleteTopping(topping)
         }
@@ -114,7 +139,7 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
     }
 
     fun deleteFromRightPartOfPizza(topping: Topping) {
-        fullOrNot = false
+        isHalfMade = true
         for (pieceIndex in size.pieceCount / 2 until size.pieceCount) {
             pieces[pieceIndex].deleteTopping(topping)
         }
@@ -126,7 +151,30 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
         println("Размер: ${size.russianName}")
         println("Тесто: ${dough.name} (${dough.price})")
         println("Бортик: ${side.name} (${side.price})")
-        if (!fullOrNot) {
+        if (isPieceMade) {
+            var startOfRange = 0
+            var endOfRange = 0
+            while (endOfRange < pieces.size) {
+
+                while (
+                    endOfRange + 1 < pieces.size &&
+                    compareToppingLists(pieces[endOfRange].getToppings(), pieces[endOfRange + 1].getToppings())
+                ) {
+                    endOfRange++
+                }
+
+                val pieceLabel = if (startOfRange == endOfRange) {
+                    "Кусок №${startOfRange + 1}:"
+                } else {
+                    "Кусок №${startOfRange + 1} - ${endOfRange + 1}:"
+                }
+                println(pieceLabel)
+                pieces[startOfRange].getToppings().forEach { println("- ${it.name} (${it.price})") }
+
+                endOfRange++
+                startOfRange = endOfRange
+            }
+        } else if (isHalfMade) {
             println("\nЛевая половина:")
             pieces[0].getToppings().forEach { println("- ${it.name} (${it.price})") }
             println("\nПравая половина:")
@@ -136,6 +184,10 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
             pieces[0].getToppings().forEach { println("- ${it.name} (${it.price})") }
         }
         println("\nСтоимость пиццы: $price")
+    }
+
+    private fun compareToppingLists(firstList: List<Topping>, secondList: List<Topping>): Boolean {
+        return firstList.sortedBy { it.name } == secondList.sortedBy { it.name }
     }
 
     override fun recalculatePrice() {
@@ -155,9 +207,9 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
 
     constructor(other: Pizza, newSize: Sizes) : this(other.dough, other.side, newSize) {
         this.name = other.name
-        this.fullOrNot = other.fullOrNot
+        this.isHalfMade = other.isHalfMade
 
-        if (other.fullOrNot) {
+        if (other.isHalfMade) {
 
             other.pieces[0].getToppings().forEach { setAllPizza(it) }
         } else {
@@ -187,10 +239,18 @@ class Pizza(private var dough: Dough, private var side: Side, private val size: 
     }
 
     fun isWhole(): Boolean {
-        return fullOrNot
+        return isHalfMade
+    }
+
+    fun isComplex(): Boolean {
+        return isPieceMade
     }
 
     fun getToppings(): List<Topping> {
         return if (pieces.isNotEmpty()) pieces[0].getToppings() else emptyList()
+    }
+
+    fun getNumberOfPieces(): Int {
+        return size.pieceCount
     }
 }

@@ -1,4 +1,10 @@
-package org.example.pizza
+package org.example.pizza.constructor
+
+import org.example.pizza.component.Dough
+import org.example.pizza.component.Side
+import org.example.pizza.component.Topping
+import org.example.pizza.order.OrderManager
+import org.example.pizza.order.Sizes
 
 object Manager : PizzaMake {
     private const val DEFAULT_DOUGH_NAME = "классическое"
@@ -6,7 +12,8 @@ object Manager : PizzaMake {
     private const val MAX_DOUGH_PRICE = 100.0
 
     private val toppings: MutableList<Topping> = mutableListOf(Topping("сыр", 10.0), Topping("ветчина", 30.0))
-    private val sides: MutableList<Side> = mutableListOf(Side(DEFAULT_SIDE_NAME, 20.0), Side("кунжут", 20.0))
+    private val sides: MutableList<Side> =
+        mutableListOf(Side(DEFAULT_SIDE_NAME, 20.0, true), Side("кунжут", 20.0, true))
     private val doughs: MutableList<Dough> = mutableListOf(Dough(DEFAULT_DOUGH_NAME, 100.0))
     private val readySets: MutableList<Pizza> = mutableListOf(
         Pizza(doughs[0], sides[0], listOf(toppings[0], toppings[1]), "СырВетчина", sides[1])
@@ -110,8 +117,6 @@ object Manager : PizzaMake {
             toppingIndex = (readlnOrNull() ?: "-1").toIntOrNull() ?: -1
             if (toppingIndex in 1..toppings.size) {
                 readySets[pizzaIndex].setAllPizza(toppings[toppingIndex - 1])
-                println("Начинка добавлена на всю пиццу")
-                readySets[pizzaIndex].printPizza()
             } else if (toppingIndex != 0) {
                 println("Неверный ввод")
             }
@@ -138,6 +143,7 @@ object Manager : PizzaMake {
                                 toppings[toppingIndex - 1].setElementName(readlnOrNull() ?: "no name")
                                 println("\nНазвание изменено")
                             }
+
                             2 -> {
                                 println("\n Введите новую цену:")
                                 toppings[toppingIndex - 1].setElementPrice(
@@ -164,8 +170,6 @@ object Manager : PizzaMake {
             toppingIndex = (readlnOrNull() ?: "0").toIntOrNull() ?: -1
             if (toppingIndex in 1..toppings.size) {
                 readySets[pizzaIndex].setLeftPartOfPizza(toppings[toppingIndex - 1])
-                println("Начинка добавлена на левую половину")
-                readySets[pizzaIndex].printPizza()
             } else if (toppingIndex != 0) {
                 println("Неверный ввод")
             }
@@ -177,8 +181,6 @@ object Manager : PizzaMake {
             toppingIndex = (readlnOrNull() ?: "0").toIntOrNull() ?: -1
             if (toppingIndex in 1..toppings.size) {
                 readySets[pizzaIndex].setRightPartOfPizza(toppings[toppingIndex - 1])
-                println("Начинка добавлена на правую половину")
-                readySets[pizzaIndex].printPizza()
             } else if (toppingIndex != 0) {
                 println("Неверный ввод")
             }
@@ -254,6 +256,78 @@ object Manager : PizzaMake {
         }
     }
 
+    override fun addToppingToRange(pizzaIndex: Int) {
+
+        var toppingIndex: Int
+
+        println("\nВыберите диапазон(макс. от 1 - 8) на который добавить начинку. Например: 1 - 6 ")
+        var range: MutableList<Int> = mutableListOf()
+
+        do {
+
+            if(range.isNotEmpty()){
+                println("Неверный ввод")
+            }
+
+            val input = readlnOrNull() ?: ""
+            range = mutableListOf()
+            var buffer: String = ""
+
+            for (char in input) {
+                if (char.isDigit()) {
+                    buffer += char
+                } else {
+                    if (buffer != "") {
+                        range.add(buffer.toInt())
+                        buffer = ""
+                    }
+                }
+            }
+
+            try {
+                range.add(buffer.toInt())
+            } catch (_: Exception) {
+            }
+
+        } while (range.size != 2 || range[0] > 0 || range[0] <= 8 || range[1] > 1 || range[0] <= 8 || range[0] > range[1])
+
+        printAllToppings()
+
+        do {
+            toppingIndex = (readlnOrNull() ?: "-1").toIntOrNull() ?: -1
+            if (toppingIndex in 1..toppings.size) {
+                readySets[pizzaIndex].setRange(range[0], range[1], toppings[toppingIndex - 1])
+                println("Начинка добавлена")
+            } else if (toppingIndex != 0) {
+                println("Неверный ввод")
+            }
+        } while (toppingIndex != 0)
+    }
+
+    override fun addToppingToPiece(pizzaIndex: Int) {
+
+        var toppingIndex: Int
+        println("\nВыберите кусок на который хотите добавить(макс. 8). Например: 2")
+
+        var pieceNumber: Int
+        do {
+            pieceNumber = (readlnOrNull() ?: "-1").toInt()
+        } while (pieceNumber <= 0 || pieceNumber > 8)
+
+        printAllToppings()
+
+        do {
+            toppingIndex = (readlnOrNull() ?: "-1").toIntOrNull() ?: -1
+            if (toppingIndex in 1..toppings.size) {
+                readySets[pizzaIndex].setToPeace(pieceNumber, toppings[toppingIndex - 1])
+                println("Начинка добавлена")
+            } else if (toppingIndex != 0) {
+                println("Неверный ввод")
+            }
+        } while (toppingIndex != 0)
+
+    }
+
     private fun addNewSide() {
         println("\nВведите название бортика:")
         val name = readlnOrNull()?.trim() ?: return
@@ -266,25 +340,25 @@ object Manager : PizzaMake {
         println("Введите цену бортика:")
         val price = readlnOrNull()?.toDoubleOrNull()
         if (price != null && price > 0) {
-            sides.add(Side(name, price))
+            sides.add(Side(name, price, false))
             println("Бортик '$name' успешно добавлен")
         } else {
             println("Неверная цена")
         }
 
         printToppings()
-        println("Выберите начинки разрешенные для этой пиццы")
+        println("Выберите начинки разрешенные для этой пиццы или введите ${toppings.size + 1} для универсального бортика")
 
-        while(true){
-            val numberOfTopping = readlnOrNull()?.toIntOrNull()
+        while (true) {
+            val toppingNumber = readlnOrNull()?.toIntOrNull()
 
-            if (numberOfTopping != 0 && numberOfTopping != null) {
-                sides.last().addAvailableTopping(toppings[numberOfTopping - 1])
-            }
-            else if(numberOfTopping == 0){
+            if (toppingNumber != 0 && toppingNumber != null && toppingNumber != (toppings.size + 1)) {
+                sides.last().addAvailableTopping(toppings[toppingNumber - 1])
+            } else if (toppingNumber == (toppings.size + 1)) {
+                sides.last().madeSideUniversal()
+            } else if (toppingNumber == 0) {
                 break
-            }
-            else{
+            } else {
                 println("Неверный ввод")
             }
         }
@@ -534,10 +608,11 @@ object Manager : PizzaMake {
             return
         }
         println("\nДоступные начинки:")
-        for(i in 0 until toppings.size){
+        for (i in 0 until toppings.size) {
             println("${i + 1} - ${toppings[i].name}")
         }
-        println("\n0 - выход")
+
+        println("0 - выход")
     }
 
 }

@@ -1,4 +1,6 @@
-package org.example.pizza
+package org.example.pizza.constructor
+
+import org.example.pizza.component.Topping
 
 class PizzaPiece : PriceManage {
     private var price: Int = 0

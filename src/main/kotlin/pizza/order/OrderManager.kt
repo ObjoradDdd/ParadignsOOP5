@@ -1,6 +1,11 @@
-package org.example.pizza
+package org.example.pizza.order
 
-import org.example.pizza.Manager.printAllToppings
+import org.example.pizza.constructor.Manager
+import org.example.pizza.constructor.Manager.printAllToppings
+import org.example.pizza.constructor.Pizza
+import org.example.pizza.constructor.PizzaMake
+import org.example.pizza.component.Dough
+import org.example.pizza.component.Side
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -69,6 +74,58 @@ object OrderManager : PizzaMake {
         println("Указать время доставки? (да/нет)")
         val setDeliveryTime = readlnOrNull()?.equals("да", ignoreCase = true) ?: false
 
+        val pizzaOwners = mutableMapOf<Int, List<String>>()
+        val guestPayments = mutableMapOf<String, Double>()
+        val allGuests = mutableSetOf<String>()
+
+        println("\nВведите номер пиццы и тех, кто за нее платит. Например:")
+        println("1 - Ваня, Петя")
+        println("2 - Ваня, Паша")
+        println("(или нажмите Enter чтобы разделить всё поровну)")
+
+        val input = readlnOrNull()
+        if (!input.isNullOrBlank()) {
+
+            input.split(".").forEach { assignment ->
+                val parts = assignment.trim().split("-")
+                if (parts.size == 2) {
+                    val pizzaIndex = parts[0].trim().toIntOrNull()?.minus(1)
+                    val guests = parts[1].split(",").map { it.trim() }
+
+                    if (pizzaIndex != null && pizzaIndex >= 0 && pizzaIndex < order.getPizzas().size) {
+                        pizzaOwners[pizzaIndex] = guests
+                        allGuests.addAll(guests)
+                    }
+                }
+            }
+
+
+            if (allGuests.isNotEmpty()) {
+
+                for (i in order.getPizzas().indices) {
+                    val guests = pizzaOwners.getOrDefault(i, allGuests.toList())
+                    val pizzaPrice = order.getPizzas()[i].price
+                    val pricePerGuest = (pizzaPrice / guests.size * 100).toInt() / 100.0
+
+
+                    guests.forEachIndexed { index, guest ->
+                        if (index == guests.size - 1) {
+                            val remainder = pizzaPrice - (pricePerGuest * (guests.size - 1))
+                            guestPayments[guest] = (guestPayments[guest] ?: 0.0) + remainder
+                        } else {
+                            guestPayments[guest] = (guestPayments[guest] ?: 0.0) + pricePerGuest
+                        }
+                    }
+
+                    if (!pizzaOwners.containsKey(i)) {
+                        pizzaOwners[i] = allGuests.toList()
+                    }
+                }
+            } else {
+                println("\nНекорректный ввод. Заказ будет разделен поровну")
+                pizzaOwners.clear()
+            }
+        }
 
         if (setDeliveryTime) {
             println("Введите дату и время доставки (формат: YYYY-MM-DD HH:MM:SS):")
@@ -91,6 +148,24 @@ object OrderManager : PizzaMake {
 
         println("\nЗаказ успешно создан:")
         order.printOrder()
+
+
+        if (pizzaOwners.isNotEmpty()) {
+            println("\nРаспределение пицц и оплаты:")
+            pizzaOwners.forEach { (index, guests) ->
+                val pizza = order.getPizzas()[index]
+                println("Пицца ${index + 1} (${String.format("%.2f", pizza.price)} руб.): ${guests.joinToString(", ")}")
+            }
+
+            println("\nК оплате:")
+            guestPayments.forEach { (guest, amount) ->
+                println("$guest: ${String.format("%.2f", amount)} руб.")
+            }
+        } else {
+            val totalPrice = order.getPizzas().sumOf { it.price }
+            println("\nОбщая сумма заказа: ${String.format("%.2f", totalPrice)} руб.")
+            println("(при равном разделении каждый платит: ${String.format("%.2f", totalPrice)})")
+        }
     }
 
     private fun addExistingPizza(order: Order) {
@@ -160,7 +235,6 @@ object OrderManager : PizzaMake {
             println("\nНет активных заказов")
             return
         }
-
         println("\nСписок всех заказов:")
         orders.sortedBy { it.getScheduledTime() }.forEach { it.printOrder() }
     }
@@ -245,6 +319,77 @@ object OrderManager : PizzaMake {
         } while (toppingIndex != 0)
     }
 
+    override fun addToppingToRange(pizzaIndex: Int) {
+
+        var toppingIndex: Int
+        val toppings = Manager.getToppings()
+
+        println("\nВыберите диапазон(макс. 1 - ${orders.last().getPizzas().last().getNumberOfPieces()}) на который добавить начинку. Например: 4 - 6 ")
+        var range: MutableList<Int> = mutableListOf()
+        do {
+            if(range.isNotEmpty()){
+                println("Неверный ввод")
+                range.forEach { println(it) }
+            }
+
+            val input = readlnOrNull() ?: ""
+            range = mutableListOf()
+            var buffer: String = ""
+
+            for (char in input) {
+                if (char.isDigit()) {
+                    buffer += char
+                } else {
+                    if (buffer != "") {
+                        range.add(buffer.toInt())
+                        buffer = ""
+                    }
+                }
+            }
+            try{ range.add(buffer.toInt()) }
+            catch (_ : Exception){}
+
+
+        } while (range.size != 2 || range[0] <= 0 || range[0] > orders.last().getPizzas().last().getNumberOfPieces() || range[1] <= 1 || range[1] > orders.last().getPizzas().last().getNumberOfPieces() || range[0] >= range[1])
+
+        printAllToppings()
+
+        do {
+            toppingIndex = (readlnOrNull() ?: "-1").toIntOrNull() ?: -1
+            if (toppingIndex in 1..toppings.size) {
+                orders.last().getPizzas().last().setRange(range[0], range[1], toppings[toppingIndex - 1])
+                println("Начинка добавлена на всю пиццу")
+                println("Начинка добавлена")
+            } else if (toppingIndex != 0) {
+                println("Неверный ввод")
+            }
+        } while (toppingIndex != 0)
+    }
+
+    override fun addToppingToPiece(pizzaIndex: Int) {
+        var toppingIndex: Int
+        val toppings = Manager.getToppings()
+        println("\nВыберите кусок на который хотите добавить(макс. ${orders.last().getPizzas().last().getNumberOfPieces()}). Например: 2")
+
+        var pieceNumber: Int
+        do {
+            pieceNumber = (readlnOrNull() ?: "-1").toInt()
+        } while (pieceNumber <= 0 || pieceNumber > orders.last().getPizzas().last().getNumberOfPieces())
+
+        printAllToppings()
+
+        do {
+            toppingIndex = (readlnOrNull() ?: "-1").toIntOrNull() ?: -1
+            if (toppingIndex in 1..toppings.size) {
+                orders.last().getPizzas().last().setToPeace(pieceNumber, toppings[toppingIndex - 1])
+                println("Начинка добавлена")
+            } else if (toppingIndex != 0) {
+                println("Неверный ввод")
+            }
+        } while (toppingIndex != 0)
+
+    }
+
     override fun addToppingToHalves(pizzaIndex: Int) {
         println("\nДобавление начинок на левую половину:")
         println("1 - Выбрать отдельные начинки")
@@ -322,7 +467,7 @@ object OrderManager : PizzaMake {
 
     private fun copyToppingsFromExistingPizza(targetPizza: Pizza, isLeftHalf: Boolean) {
         val readySets = Manager.getReadySets()
-        val wholePizzas = readySets.filter { it.isWhole() }
+        val wholePizzas = readySets.filter { !it.isWhole() }
 
         if (wholePizzas.isEmpty()) {
             println("\nНет доступных пицц с полной начинкой для копирования")
@@ -336,6 +481,12 @@ object OrderManager : PizzaMake {
         }
 
         val pizzaIndex = readlnOrNull()?.toIntOrNull()?.minus(1) ?: return
+
+        if (wholePizzas[pizzaIndex].isComplex()){
+            println("Нельзя скопировать пиццу составленную по кусочно")
+            return
+        }
+
         if (pizzaIndex in wholePizzas.indices) {
             val sourcePizza = wholePizzas[pizzaIndex]
             sourcePizza.getToppings().forEach { topping ->

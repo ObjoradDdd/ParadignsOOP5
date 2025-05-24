@@ -1,4 +1,4 @@
-package org.example.pizza
+package org.example.pizza.order
 
 enum class Sizes(val pieceCount : Int, val russianName : String) {
     BIG(12, "Большая"),
